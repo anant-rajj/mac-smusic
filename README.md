@@ -75,25 +75,54 @@ make
 Verify installation:
 ```bash
 mac-smusic --version
-mac-smusic status
+mac-smusic guide
 ```
+
+---
+
+## 👥 Multi-User & Multi-Mac Setup (Party & Office Fleet Mode)
+
+`mac-smusic` is built from the ground up for **multi-device arrays**. You can synchronize **2, 5, 10, or 50+ Macs** across the same room, building, or office floor. Because the audio transport utilizes **UDP Multicast (`239.255.49.50`)**, adding additional listener Macs introduces **zero extra CPU load or bandwidth consumption** on the host Mac!
+
+```
+                            ┌─────────────────────────────┐
+                            │     HOST MAC (BROADCASTER)  │
+                            │  mac-smusic play track.mp3  │
+                            └──────────────┬──────────────┘
+                                           │ UDP Multicast / mDNS Beacon
+                  ┌────────────────────────┼────────────────────────┐
+                  ▼                        ▼                        ▼
+     ┌────────────────────────┐┌────────────────────────┐┌────────────────────┐
+     │   MAC 2 (RECEIVER A)   ││   MAC 3 (RECEIVER B)   ││ MAC 4 (RECEIVER C) │...
+     │     mac-smusic join    ││     mac-smusic join    ││   mac-smusic join  │
+     └────────────────────────┘└────────────────────────┘└────────────────────┘
+               🔊                       🔊                       🔊
+                        PERFECT PHASE-LOCKED HARDWARE PLAYOUT!
+```
+
+### Step 1: On the Host Mac (DJ / Presenter)
+Choose a song and start broadcasting:
+```bash
+mac-smusic play ~/Music/song.mp3
+```
+*The host Mac plays the track through its own speakers while simultaneously broadcasting timestamped packets to all peers on the network.*
+
+### Step 2: On ALL Other Macs (Receivers)
+On every other Mac in the room, simply run:
+```bash
+mac-smusic join
+```
+*No IP address typing needed! The receiver automatically discovers the host via Bonjour, syncs its monotonic clock, regulates DAC crystal drift, and begins playing in lockstep (< 0.5ms accuracy).*
 
 ---
 
 ## 🎮 CLI Usage Guide
 
-### 1. Play Music Synchronized Across All Macs
-On **Mac 1 (Host)**:
+### 1. View the Interactive Multi-Mac Guide
+To view the visual onboarding guide and command reference directly in your terminal at any time:
 ```bash
-mac-smusic play ~/Music/favorite_song.mp3
+mac-smusic guide
 ```
-*Supports `.mp3`, `.wav`, `.flac`, `.m4a`, `.aac`, and `.ogg` files.*
-
-On **Mac 2, Mac 3, etc. (Receivers)**:
-```bash
-mac-smusic join
-```
-*That's it! The receiver automatically discovers the host via Bonjour, syncs its hardware clock, and begins playing in lockstep.*
 
 ---
 
@@ -167,6 +196,7 @@ SYNCHRONIZATION TELEMETRY REPORT
 | `mac-smusic scan [-t timeout]` | Scan local network for other Macs |
 | `mac-smusic sync [host_ip]` | Benchmark RTT, jitter, and crystal drift PPM |
 | `mac-smusic status` | Display local CoreAudio and network telemetry |
+| `mac-smusic guide` | Display interactive multi-Mac onboarding guide |
 
 ---
 

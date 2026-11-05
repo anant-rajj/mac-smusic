@@ -36,6 +36,67 @@ def print_banner() -> None:
     print(f"{CYAN}{BOLD}mac-smusic{RESET} {DIM}v{__version__}{RESET} // {MAGENTA}Precision Multi-Mac Synchronized Audio Engine{RESET}\n")
 
 
+def print_multiuser_guide() -> None:
+    """Displays the interactive multi-Mac setup and connection walkthrough."""
+    print_banner()
+    guide = f"""{BOLD}MULTI-MAC SYNCHRONIZED AUDIO // QUICK ONBOARDING GUIDE{RESET}
+================================================================================
+Play the exact same music or live audio across {BOLD}2, 3, 5, or 50+ Macs{RESET} simultaneously
+over your local Wi-Fi or Ethernet network in sub-millisecond phase-lock!
+
+{CYAN}┌──────────────────────────────────────────────────────────────────────────────┐
+│                            MULTI-MAC NETWORK TOPOLOGY                        │
+│                                                                              │
+│                         ┌─────────────────────────────┐                      │
+│                         │     HOST MAC (BROADCASTER)  │                      │
+│                         │  mac-smusic play track.mp3  │                      │
+│                         └──────────────┬──────────────┘                      │
+│                                        │ UDP Multicast / mDNS Beacon         │
+│               ┌────────────────────────┼────────────────────────┐            │
+│               ▼                        ▼                        ▼            │
+│  ┌────────────────────────┐┌────────────────────────┐┌────────────────────┐  │
+│  │   MAC 2 (RECEIVER A)   ││   MAC 3 (RECEIVER B)   ││ MAC 4 (RECEIVER C) │...│
+│  │     mac-smusic join    ││     mac-smusic join    ││   mac-smusic join  │  │
+│  └────────────────────────┘└────────────────────────┘└────────────────────┘  │
+│            🔊                       🔊                       🔊              │
+│                     PERFECT PHASE-LOCKED HARDWARE PLAYOUT                    │
+└──────────────────────────────────────────────────────────────────────────────┘{RESET}
+
+{GREEN}{BOLD}STEP 1: ON THE FIRST MAC (BROADCASTER / DJ){RESET}
+  Choose any music file and start broadcasting:
+    {BOLD}mac-smusic play ~/Music/song.mp3{RESET}
+
+  Or stream live system audio / microphone (e.g., via BlackHole):
+    {BOLD}mac-smusic stream{RESET}
+
+{GREEN}{BOLD}STEP 2: ON ALL OTHER MACS (RECEIVERS / MULTI-ROOM / OFFICE PARTY){RESET}
+  On Mac 2, Mac 3, Mac 4, etc., simply run:
+    {BOLD}mac-smusic join{RESET}
+
+  {DIM}Zero IP typing required! Each receiver auto-discovers the host on your Wi-Fi,
+  calibrates crystal clock drift, and begins playing synchronously with < 0.5ms delay.{RESET}
+
+{GREEN}{BOLD}STEP 3: MULTI-MAC FLEET COMMANDS & FUNCTIONS{RESET}
+  {BOLD}mac-smusic play <file>{RESET}       Broadcast a music file (.mp3, .wav, .flac, .m4a) to all Macs
+  {BOLD}mac-smusic join{RESET}              Auto-discover host and play along in sync
+  {BOLD}mac-smusic join --host <ip>{RESET}  Join a specific Mac directly (bypass auto-discovery)
+  {BOLD}mac-smusic stream{RESET}            Broadcast live microphone or system audio input
+  {BOLD}mac-smusic scan{RESET}              Radar scan your Wi-Fi to find all Macs running mac-smusic
+  {BOLD}mac-smusic sync [host_ip]{RESET}    Benchmark latency, network jitter, and crystal clock drift PPM
+  {BOLD}mac-smusic status{RESET}            Display local CoreAudio and network configuration
+  {BOLD}mac-smusic guide{RESET}             Display this multi-Mac onboarding guide
+
+{YELLOW}{BOLD}PRO TIPS FOR MULTIPLE USERS:{RESET}
+  • {BOLD}Unlimited Listeners:{RESET} Because mac-smusic uses hardware UDP Multicast, adding 10
+    or 50 Macs introduces 0 additional CPU or network overhead on the host.
+  • {BOLD}Network Quality:{RESET} For the best experience, connect all Macs to the same 5GHz
+    Wi-Fi band or local wired Ethernet.
+  • {BOLD}Check Your Network:{RESET} Run {BOLD}mac-smusic scan{RESET} at any time to see every active Mac.
+================================================================================
+"""
+    print(guide)
+
+
 def command_host(args: argparse.Namespace) -> None:
     """Runs mac-smusic in Broadcaster/Host mode."""
     print_banner()
@@ -102,7 +163,9 @@ def command_host(args: argparse.Namespace) -> None:
             if idx % 100 == 0 or idx == len(chunks) - 1:
                 elapsed_sec = round(idx * chunk_duration_sec, 1)
                 total_sec = round(len(chunks) * chunk_duration_sec, 1)
-                sys.stdout.write(f"\r{CYAN}[SYNC STREAM]{RESET} Progress: {elapsed_sec}s / {total_sec}s | Chunks Sent: {idx+1}/{len(chunks)}  ")
+                active_clients = clock_server.get_active_clients()
+                client_str = f"{len(active_clients)} Mac(s) in sync ({', '.join(active_clients)})" if active_clients else "Broadcasting (waiting for peers)"
+                sys.stdout.write(f"\r{CYAN}[SYNC STREAM]{RESET} {elapsed_sec}s / {total_sec}s | {GREEN}● {client_str}{RESET}   ")
                 sys.stdout.flush()
 
         print(f"\n{GREEN}[✓] Playback complete.{RESET}")
@@ -110,8 +173,13 @@ def command_host(args: argparse.Namespace) -> None:
         print(f"\n{CYAN}[HOST IDLE]{RESET} Waiting for audio source. You can run:")
         print(f"  {BOLD}mac-smusic play <song.mp3>{RESET}  to stream music across all connected Macs.")
         print(f"  {BOLD}mac-smusic stream{RESET}           to stream live system/microphone audio.")
-        print(f"\nPress Ctrl+C to stop host daemon.")
+        print(f"\nPress Ctrl+C to stop host daemon.\n")
         while not stop_event:
+            active_clients = clock_server.get_active_clients()
+            client_count = len(active_clients)
+            client_str = f"{client_count} Mac(s) in sync ({', '.join(active_clients)})" if active_clients else "Listening for listener Macs on Wi-Fi..."
+            sys.stdout.write(f"\r{CYAN}[HOST READY]{RESET} {GREEN}● {client_str}{RESET}   ")
+            sys.stdout.flush()
             time.sleep(0.5)
 
     local_player.stop()
@@ -374,10 +442,13 @@ def main() -> None:
     # Status command
     subparsers.add_parser("status", help="Show local machine audio and network status")
 
+    # Guide command
+    subparsers.add_parser("guide", help="Show multi-Mac setup guide and connection walkthrough")
+
     args = parser.parse_args()
 
     if not args.command:
-        parser.print_help()
+        print_multiuser_guide()
         sys.exit(0)
 
     dispatch = {
@@ -388,6 +459,7 @@ def main() -> None:
         "scan": command_scan,
         "sync": command_sync,
         "status": command_status,
+        "guide": lambda _: print_multiuser_guide(),
     }
 
     cmd_fn = dispatch.get(args.command)

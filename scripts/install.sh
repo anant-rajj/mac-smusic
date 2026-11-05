@@ -26,5 +26,11 @@ if command -v swiftc >/dev/null 2>&1; then
     make -C "$(dirname "$0")/.."
 fi
 
-echo -e "${GREEN}${BOLD}✓ mac-smusic installed successfully!${RESET}"
-echo -e "Run ${BOLD}mac-smusic --help${RESET} to get started."
+echo -e "${GREEN}${BOLD}✓ mac-smusic installed successfully!${RESET}\n"
+
+# Display the multi-Mac connection walkthrough & command guide
+if command -v mac-smusic >/dev/null 2>&1; then
+    mac-smusic guide
+else
+    python3 -m mac_smusic.cli guide
+fi

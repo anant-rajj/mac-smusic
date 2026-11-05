@@ -163,6 +163,14 @@ class ClockSyncServer:
         self._sock: Optional[socket.socket] = None
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._active_clients: Dict[str, float] = {}
+        self._clients_lock = threading.Lock()
+
+    def get_active_clients(self, timeout_sec: float = 5.0) -> List[str]:
+        """Returns list of client IPs currently actively synchronizing with this host."""
+        now = time.time()
+        with self._clients_lock:
+            return [ip for ip, last_seen in self._active_clients.items() if (now - last_seen) <= timeout_sec]
 
     def start(self) -> None:
         """Starts background clock response server."""
@@ -199,6 +207,9 @@ class ClockSyncServer:
                 magic, ver, ptype, _, seq, t1, _, _ = struct.unpack(PACKET_FORMAT, data)
                 if magic != MAGIC_CLOCK or ver != VERSION or ptype != TYPE_REQ:
                     continue
+
+                with self._clients_lock:
+                    self._active_clients[addr[0]] = time.time()
 
                 t3 = time.monotonic_ns()
                 resp = struct.pack(PACKET_FORMAT, MAGIC_CLOCK, VERSION, TYPE_RESP, b"\x00\x00", seq, t1, t2, t3)
