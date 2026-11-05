@@ -90,9 +90,13 @@ class AudioBroadcaster:
         # Enable broadcast
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-        # Set Multicast TTL
+        # Set Multicast TTL & Loopback
         ttl = struct.pack("b", 2)
         self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, ttl)
+        try:
+            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+        except OSError:
+            pass
 
     def add_peer(self, ip: str) -> None:
         if ip not in self.unicast_peers:

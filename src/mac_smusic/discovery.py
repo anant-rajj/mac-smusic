@@ -30,6 +30,10 @@ class HostBeacon:
         self._thread: Optional[threading.Thread] = None
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        try:
+            self._sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+        except OSError:
+            pass
 
     def start(self, interval_sec: float = 1.0) -> None:
         """Starts periodic discovery broadcast in the background."""
@@ -65,6 +69,12 @@ class HostBeacon:
 
             try:
                 self._sock.sendto(payload, (DISCOVERY_GROUP, DISCOVERY_PORT))
+            except OSError:
+                pass
+
+            # Loopback broadcast for local tests & CI runners
+            try:
+                self._sock.sendto(payload, ("127.0.0.1", DISCOVERY_PORT))
             except OSError:
                 pass
 

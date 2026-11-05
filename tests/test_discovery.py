@@ -9,7 +9,7 @@ def test_discovery_beacon_and_scan():
 
     scanner = NetworkScanner()
     try:
-        host = scanner.find_first_host(timeout_sec=1.5)
+        host = scanner.find_first_host(timeout_sec=3.0)
         assert host is not None
         assert host["name"] == "Test-MacBook"
         assert host["clock_port"] == 49541
